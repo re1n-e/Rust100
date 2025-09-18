@@ -1,6 +1,6 @@
 use std::fs::File;
-use std::io::{self, Read};
-use std::{env::args, fs::OpenOptions};
+use std::io::{self, Read, Write};
+use std::{env::args, path::Path};
 
 use serde::{Deserialize, Serialize};
 
@@ -17,8 +17,13 @@ enum ShowTask {
     All,
 }
 
-fn load_task(file_path: &String) -> Vec<Task> {
-    let mut file = get_file(file_path, false);
+fn load_task(file_path: &str) -> Vec<Task> {
+    if !Path::new(file_path).exists() {
+        let mut file = File::create(file_path).expect("Failed to create file");
+        file.write_all(b"[]").expect("Failed to write to new file");
+    }
+    
+    let mut file = File::open(file_path).expect("Failed to open file for reading");
     let mut buf = String::new();
     file.read_to_string(&mut buf)
         .expect("Failed to read from file");
@@ -40,23 +45,6 @@ fn get_input(msg: &str) -> usize {
         .trim()
         .parse::<usize>()
         .expect("Input is not a valid unsigned integer")
-}
-
-fn get_file(file_path: &String, write: bool) -> File {
-    if write {
-        OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(file_path)
-            .expect("Failed to open file for writing")
-    } else {
-        OpenOptions::new()
-            .create(true)
-            .read(true)
-            .open(file_path)
-            .expect("Failed to open file for reading")
-    }
 }
 
 fn add_task(tasks: &mut Vec<Task>) {
@@ -106,8 +94,8 @@ fn delete_task(tasks: &mut Vec<Task>) {
     }
 }
 
-fn write_tasks(tasks: &mut Vec<Task>, file_path: &String) {
-    let file = get_file(file_path, true);
+fn write_tasks(tasks: &mut Vec<Task>, file_path: &str) {
+    let file = File::create(file_path).expect("Failed to create file for writing");
     serde_json::to_writer_pretty(file, tasks).expect("Failed to write tasks to file");
 }
 
@@ -132,13 +120,15 @@ fn show_task(tasks: &Vec<Task>, show: ShowTask) {
 fn edit_task(tasks: &mut Vec<Task>) {
     let task_id = get_input("Enter the task id to be edited");
     if let Some(task) = tasks.iter_mut().find(|task| task_id == task.id) {
+        println!("Enter new description:");
         let mut new_description = String::new();
         io::stdin()
             .read_line(&mut new_description)
             .expect("Can't read new description");
         task.description = String::from(new_description.trim());
+        println!("Task updated successfully");
     } else {
-        println!("Task id to be edited dosen't exist");
+        println!("Task id to be edited doesn't exist");
     }
 }
 
