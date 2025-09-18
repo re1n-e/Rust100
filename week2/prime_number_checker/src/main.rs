@@ -5,14 +5,7 @@ fn check_prime(num: i32) -> bool {
         return false;
     }
 
-    let mut i = 2;
-    while i * i <= num {
-        if num % i == 0 {
-            return false;
-        }
-        i += 1;
-    }
-    true
+    !(2..).take_while(|&i| i * i <= num).any(|i| num % i == 0)
 }
 
 fn main() {
