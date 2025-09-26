@@ -1,5 +1,5 @@
 use std::fmt;
-use std::io;
+use std::io::{self, Write};
 
 #[derive(Debug, Clone)]
 struct Contact {
@@ -24,7 +24,6 @@ struct TrieNode {
     next: Box<[Option<Box<TrieNode>>; 27]>, // Each letter → optional child node
     contacts: Option<Vec<Contact>>,         // Store contacts here
     is_contact: bool,
-    freq: usize,
 }
 
 impl TrieNode {
@@ -33,7 +32,6 @@ impl TrieNode {
             next: Box::new(array_init::array_init(|_| None)),
             contacts: None,
             is_contact: false,
-            freq: 0,
         }
     }
 }
@@ -60,7 +58,6 @@ impl Trie {
             if temp.next[index].is_none() {
                 temp.next[index] = Some(Box::new(TrieNode::new()));
             }
-            temp.freq += 1;
             temp = temp.next[index].as_deref_mut().unwrap();
         }
         temp.is_contact = true;
@@ -89,8 +86,8 @@ impl Trie {
         }
     }
 
-    fn search(&mut self, name: &str) -> bool {
-        let mut temp = &mut self.root;
+    fn search(&self, name: &str) -> bool {
+        let mut temp = &self.root;
         for ch in name.chars() {
             let index = if !ch.is_whitespace() {
                 (ch.to_ascii_lowercase() as u8 - b'a') as usize
@@ -100,7 +97,7 @@ impl Trie {
             if temp.next[index].is_none() {
                 return false;
             }
-            temp = temp.next[index].as_deref_mut().unwrap();
+            temp = temp.next[index].as_deref().unwrap();
         }
         if temp.is_contact {
             println!("Found following with name: {name}");
@@ -113,55 +110,105 @@ impl Trie {
         temp.is_contact
     }
 
-    fn delete_contact(&mut self, name: &str, id: &usize) {}
+    fn delete_contact(&mut self, name: &str, id: usize) {
+        Self::delete(&mut self.root, name, 0, id);
+    }
 
-    fn delete(temp: &mut TrieNode, name: &str, id: &usize) {
-        if temp.is_contact {
-            if let Some(ref mut contacts) = temp.contacts {}
-        }
-        for ch in name.chars() {
+    fn delete(node: &mut TrieNode, name: &str, pos: usize, id: usize) -> bool {
+        if pos == name.len() {
+            if node.is_contact {
+                if let Some(ref mut contacts) = node.contacts {
+                    contacts.retain(|c| c.id != id);
+                    if contacts.is_empty() {
+                        node.contacts = None;
+                        node.is_contact = false;
+                    }
+                }
+            }
+        } else {
+            let c = name.chars().nth(pos).unwrap();
             let index = if !c.is_whitespace() {
                 (c.to_ascii_lowercase() as u8 - b'a') as usize
             } else {
                 26
             };
-            if temp.next[index].is_none() {
-                temp.next[index] = Some(Box::new(TrieNode::new()));
+
+            if let Some(child) = node.next[index].as_deref_mut() {
+                let should_delete = Self::delete(child, name, pos + 1, id);
+
+                if should_delete {
+                    node.next[index] = None;
+                }
             }
         }
+
+        node.contacts.is_none() && !node.is_contact && node.next.iter().all(|c| c.is_none())
     }
 }
 
+fn get_input(prompt: &str) -> String {
+    print!("{prompt}: ");
+    io::stdout().flush().unwrap();
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap();
+    input.trim().to_string()
+}
+
 fn main() {
-    // loop {
-    //     println!("\n Cotact Manager:");
-    //     println!("1. Add Contact");
-    //     println!("2. View Contacts");
-    //     println!("3. Search Contacts");
-    //     println!("4. Delete Contacts");
-    //     println!("5. Exit");
-    // }
     let mut trie = Trie::new();
+    let mut id_counter = 1;
 
-    trie.add_contact(
-        &"Ali",
-        Contact {
-            id: 1,
-            name: "Ali".into(),
-            phone: "1111".into(),
-            email: "ali@example.com".into(),
-        },
-    );
+    loop {
+        println!("\nContact Manager:");
+        println!("1. Add Contact");
+        println!("2. View Contacts");
+        println!("3. Search Contacts");
+        println!("4. Delete Contacts");
+        println!("5. Exit");
 
-    trie.add_contact(
-        &"Alice",
-        Contact {
-            id: 2,
-            name: "Alice".into(),
-            phone: "2222".into(),
-            email: "alice@example.com".into(),
-        },
-    );
+        let choice = get_input("Enter choice");
 
-    trie.view_contacts();
+        match choice.as_str() {
+            "1" => {
+                let name = get_input("Enter name");
+                let phone = get_input("Enter phone");
+                let email = get_input("Enter email");
+
+                let contact = Contact {
+                    id: id_counter,
+                    name: name.clone(),
+                    phone,
+                    email,
+                };
+                trie.add_contact(&name, contact);
+                println!("Contact added successfully!");
+                id_counter += 1;
+            }
+            "2" => {
+                println!("All Contacts:");
+                trie.view_contacts();
+            }
+            "3" => {
+                let name = get_input("Enter name to search");
+                if !trie.search(&name) {
+                    println!("No contact found with that name.");
+                }
+            }
+            "4" => {
+                let name = get_input("Enter name of contact to delete");
+                let id: usize = get_input("Enter contact ID to delete").parse().unwrap_or(0);
+                if id == 0 {
+                    println!("Invalid ID!");
+                } else {
+                    trie.delete_contact(&name, id);
+                    println!("Contact deleted (if it existed).");
+                }
+            }
+            "5" => {
+                println!("Exiting...");
+                break;
+            }
+            _ => println!("Invalid choice, try again."),
+        }
+    }
 }
