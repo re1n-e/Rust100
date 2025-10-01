@@ -69,7 +69,6 @@ fn update_line(line_no: usize, new_text: &str, file_path: &str) {
         }
     };
 
-    // Read all lines
     let mut lines: Vec<String> = BufReader::new(file).lines().map(|l| l.unwrap()).collect();
 
     if line_no < lines.len() {
