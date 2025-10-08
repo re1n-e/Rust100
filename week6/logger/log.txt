@@ -1,0 +1,5 @@
+[2025-10-07 12:21:13] INFO: File Created
+[2025-10-07 12:21:26] WARN: Fiele already created
+[2025-10-07 12:21:53] ERROR: Failed to create the file
+[2025-10-07 12:22:08] INFO: 2 + 2 != 5
+[2025-10-07 12:22:18] ERROR: Failed to prove your addition
